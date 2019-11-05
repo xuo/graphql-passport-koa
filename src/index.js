@@ -1,9 +1,9 @@
-import { ApolloServer, gql } from 'apollo-server-express'
+import { ApolloServer, gql } from 'apollo-server-koa'
 import { GraphQLLocalStrategy, buildContext } from 'graphql-passport'
 
-import express from 'express'
-import passport from 'passport'
-import session from 'express-session'
+import Koa from 'koa'
+import passport from 'koa-passport'
+import session from 'koa-session'
 
 const users = [{ id: 1, email: 'test@example.com', password: 'pass' }]
 
@@ -26,14 +26,18 @@ passport.use(
   })
 )
 
-const app = express()
+const app = new Koa()
+
 app.use(
-  session({
-    secret: 'test',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { maxAge: 600000, httpOnly: false }
-  })
+  session(
+    {
+      secret: 'test',
+      resave: false,
+      saveUninitialized: false,
+      cookie: { maxAge: 600000, httpOnly: false }
+    },
+    app
+  )
 )
 app.use(passport.initialize())
 app.use(passport.session())
@@ -82,7 +86,10 @@ const resolvers = {
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: ({ req, res }) => buildContext({ req, res })
+  // returns error in koa-passport
+  // TypeError: Object prototype may only be an Object or null: undefined
+  // see https://github.com/rkusa/koa-passport/blob/7cc1f2c18b7b5e2a965d20b14a599a9c50090fcb/lib/framework/request.js#L137
+  context: ({ ctx }) => buildContext({ req: ctx.req, res: ctx.res })
 })
 
 server.applyMiddleware({ app, cors: false })
